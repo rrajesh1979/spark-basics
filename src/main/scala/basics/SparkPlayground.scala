@@ -63,41 +63,78 @@ object SparkPlayground extends App {
     'Origin,                        //Scala symbol, auto-converted to column
     Symbol("Origin"),               //Symbol literals are deprecated in Scala 2.13. Use Symbol("Origin") instead
     $"Cylinders",                   //String interpolation
-    expr("Weight_in_lbs")     //Expression
+    expr("Weight_in_lbs"),   //Expression
+    (col("Weight_in_lbs") /2.2).as("Weight_in_kg"), //Expression with alias) ,
+    expr("Weight_in_lbs / 2.2").as("Weight_in_kgs")    //Expression
   ).show()
 
-  /**
-   * Exercise:
-   * 1) Create a manual DF describing smartphones
-   *   - make
-   *   - model
-   *   - screen dimension
-   *   - camera megapixels
-   *
-   * 2) Read another file from the data/ folder, e.g. movies.json
-   *   - print its schema
-   *   - count the number of rows, call count()
-   */
+  //Option 3 - select with list of expressions
+  carsDF.select(
+    expr("Name"),
+    expr("Weight_in_lbs as Weight_Pounds"),    //Expression with alias
+    expr("Weight_in_lbs / 2.2 as `Weight in Kgs`"), //Expression with alias and spaces
+    expr("Weight_in_lbs / 2.2").as("Weight_in_kgs")    //Expression with alias
+  ).show()
 
-  private val smartphones = Seq(
-    ("Samsung", "Galaxy S10", 6.1, 12),
-    ("Apple", "iPhone 11", 6.1, 12),
-    ("Google", "Pixel 4", 5.7, 12),
-    ("OnePlus", "7T", 6.55, 48),
+  //Option 4 - select with list of column names and expressions
+  carsDF.selectExpr(
+    "Name",
+    "Weight_in_lbs",
+    "Weight_in_lbs / 2.2 as `Weight in Kgs`", //Expression with alias and spaces
+    "Weight_in_lbs / 2.2 as Weight_in_kgs"    //Expression with alias
+  ).show()
+
+  //New DataFrame with a new column, "Weight_in_kgs" and existing column "Weight_in_lbs" renamed to "Weight_in_pounds"
+  private val carsDFWithWeightInKgs = carsDFWithSchema.select(
+    col("Name"),
+    col("Weight_in_lbs").as("Weight_in_pounds"),
+    (col("Weight_in_lbs") / 2.2).as("Weight_in_kgs")
   )
+  logger.info("carsDFWithWeightInKgs Schema = " + carsDFWithWeightInKgs.schema)
+  logger.info("New DataFrame")
+  carsDFWithWeightInKgs.show()
 
-  private val smartphonesDF = spark.createDataFrame(smartphones)
-    .toDF("make", "model", "screen_dimension", "camera_megapixels")
+  private val carsDFNew = carsDFWithSchema
+    .withColumn("Weight_in_kgs", col("Weight_in_lbs") / 2.2)
+    .withColumnRenamed("Weight_in_lbs", "Weight_in_pounds")
+    .drop("Acceleration") //Drop a column
 
-  smartphonesDF.show()
+  logger.info("carsDFNew Schema = " + carsDFNew.schema)
+  logger.info("New DataFrame")
+  carsDFNew.show()
 
-  private val moviesDF = spark.read
-    .option("inferSchema", "true")
-    .json("src/main/resources/data/movies.json")
+  //Filtering
+  private val americanCarsDF =
+    carsDFNew
+    .filter(
+      col("Origin") === "USA"
+    )
 
-  println("MoviesDF Schema = " + moviesDF.schema)
+  //Chaining filters
+  private val americanPowerfulCarsDF =
+    carsDFNew
+    .filter(
+      col("Origin") === "USA"
+    )
+    .filter(
+      col("Horsepower") > 150
+    )
 
-  println("MoviesDF Count = " + moviesDF.count())
+  //Filtering with expressions
+  private val americanPowerfulCarsDF2 =
+    carsDFNew
+    .filter(
+      "Origin = 'USA' and Horsepower > 150"
+    )
+
+  //Filtering with logical expressions
+  private val americanPowerfulCarsDF3 =
+    carsDFNew
+      .filter(
+        (col("Origin") === "USA") and (col("Horsepower") > 150)
+      )
+
+
 
 
 }
